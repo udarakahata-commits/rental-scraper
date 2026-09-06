@@ -32,15 +32,6 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Get the latest changes from GitHub first
-          git pull --rebase origin main
-
-          # Add the scraper results
           git add matches.csv seen_urls.json
-
-          # Save the changes if there are any
           git diff --quiet --cached || git commit -m "Daily scrape: $(date -u +'%Y-%m-%d')"
-
-          # Upload the results
-          git push origin main
+          git push
