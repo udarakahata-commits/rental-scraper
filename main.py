@@ -5,25 +5,60 @@ The full daily pipeline:
   2. Filter down to your criteria
   3. Compare against listings we've already seen (seen_urls.json)
   4. Save only the genuinely NEW matches to matches.csv
-  5. Update seen_urls.json so tomorrow's run doesn't repeat today's results
+  5. Send a Telegram alert with the new matches
+  6. Update seen_urls.json so tomorrow's run doesn't repeat today's results
 """
 
 import csv
 import json
 import os
+import requests
 from datetime import datetime
 
 from ikman_scraper import scrape_ikman
 
 # --- Your search criteria ---
 MAX_PRICE = 40000
-MIN_BEDS = 2
-MIN_BATHS = 1
+MAX_BEDS = 2
+MAX_BATHS = 1
 TARGET_LOCATIONS = ["colombo"]  # matched against ikman's district field, lowercase
 
 SEEN_URLS_FILE = "seen_urls.json"
 MATCHES_FILE = "matches.csv"
 NUM_PAGES_TO_SCRAPE = 5  # ikman shows ~25 listings/page; 5 pages = most recent ~125
+
+# --- Telegram settings (read from environment variables, never hardcoded) ---
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+
+
+def send_telegram_message(text: str) -> None:
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("[telegram] Skipped: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set")
+        return
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": text,
+        "disable_web_page_preview": True,
+    }
+    response = requests.post(url, json=payload, timeout=15)
+    if response.status_code == 200:
+        print("[telegram] Message sent successfully")
+    else:
+        print(f"[telegram] Failed to send message: {response.status_code} {response.text}")
+
+
+def build_telegram_message(new_matches: list[dict]) -> str:
+    lines = [f"🏠 {len(new_matches)} new house(s) matching your criteria:\n"]
+    for listing in new_matches:
+        lines.append(
+            f"• {listing['title']}\n"
+            f"  Rs {listing['price']:,} | {listing['beds']}bd/{listing['baths']}ba | {listing['location']}\n"
+            f"  {listing['url']}\n"
+        )
+    return "\n".join(lines)
 
 
 def load_seen_urls() -> set:
@@ -41,9 +76,9 @@ def save_seen_urls(urls: set) -> None:
 def matches_criteria(listing: dict) -> bool:
     if listing["price"] is None or listing["price"] > MAX_PRICE:
         return False
-    if listing["beds"] is None or listing["beds"] < MIN_BEDS:
+    if listing["beds"] is None or listing["beds"] > MAX_BEDS:
         return False
-    if listing["baths"] is None or listing["baths"] < MIN_BATHS:
+    if listing["baths"] is None or listing["baths"] > MAX_BATHS:
         return False
     location_lower = (listing["location"] or "").lower()
     if not any(target in location_lower for target in TARGET_LOCATIONS):
@@ -59,7 +94,7 @@ def run_pipeline():
 
     matching = [l for l in all_listings if matches_criteria(l)]
     print(f"{len(matching)} listings match your criteria "
-          f"(<= Rs {MAX_PRICE}, {MIN_BEDS}+ beds, {MIN_BATHS}+ baths, {TARGET_LOCATIONS})")
+          f"(<= Rs {MAX_PRICE}, <= {MAX_BEDS} beds, <= {MAX_BATHS} baths, {TARGET_LOCATIONS})")
 
     seen_urls = load_seen_urls()
     new_matches = [l for l in matching if l["url"] not in seen_urls]
@@ -79,6 +114,7 @@ def run_pipeline():
                 writer.writerow(row)
 
         print(f"\nSaved {len(new_matches)} new matches to {MATCHES_FILE}")
+        send_telegram_message(build_telegram_message(new_matches))
     else:
         print("\nNo new matches this run — matches.csv unchanged.")
 
