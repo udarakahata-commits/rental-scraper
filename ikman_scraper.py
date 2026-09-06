@@ -52,6 +52,9 @@ def parse_listings(html: str) -> list[dict]:
             price_match = re.search(r"Rs\s*([\d,]+)\s*/month", full_text)
             price = int(price_match.group(1).replace(",", "")) if price_match else None
 
+            if price is not None and price < 5000:
+                price = None
+
             desc_div = ad.find("div", class_=re.compile(r"^description"))
             location = desc_div.get_text(strip=True).split(",")[0] if desc_div else ""
 
