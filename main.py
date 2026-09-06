@@ -17,8 +17,8 @@ from ikman_scraper import scrape_ikman
 
 # --- Your search criteria ---
 MAX_PRICE = 40000
-MIN_BEDS = 2
-MIN_BATHS = 1
+MAX_BEDS = 2
+MAX_BATHS = 1
 TARGET_LOCATIONS = ["colombo"]  # matched against ikman's district field, lowercase
 
 SEEN_URLS_FILE = "seen_urls.json"
