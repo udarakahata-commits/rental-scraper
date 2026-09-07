@@ -5,7 +5,7 @@ The full daily pipeline:
   2. Filter down to your criteria
   3. Compare against listings we've already seen (seen_urls.json)
   4. Save only the genuinely NEW matches to matches.csv
-  5. Send a Telegram alert with the new matches
+  5. Send a Telegram alert with the new matches (or a "no new listings" message)
   6. Update seen_urls.json so tomorrow's run doesn't repeat today's results
 """
 
@@ -113,7 +113,7 @@ def run_pipeline():
                 row = {**listing, "scraped_at": scraped_at}
                 writer.writerow(row)
 
-               print(f"\nSaved {len(new_matches)} new matches to {MATCHES_FILE}")
+        print(f"\nSaved {len(new_matches)} new matches to {MATCHES_FILE}")
         send_telegram_message(build_telegram_message(new_matches))
     else:
         print("\nNo new matches this run — matches.csv unchanged.")
