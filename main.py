@@ -113,10 +113,11 @@ def run_pipeline():
                 row = {**listing, "scraped_at": scraped_at}
                 writer.writerow(row)
 
-        print(f"\nSaved {len(new_matches)} new matches to {MATCHES_FILE}")
+               print(f"\nSaved {len(new_matches)} new matches to {MATCHES_FILE}")
         send_telegram_message(build_telegram_message(new_matches))
     else:
         print("\nNo new matches this run — matches.csv unchanged.")
+        send_telegram_message("Hey, there are no new rental listings today.")
 
     all_matching_urls = {l["url"] for l in matching}
     save_seen_urls(seen_urls | all_matching_urls)
